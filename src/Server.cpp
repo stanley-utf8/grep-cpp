@@ -13,6 +13,11 @@ bool match_pattern(const std::string &input_line, const std::string &pattern) {
     return std::regex_search(input_line, digit_pattern);
   }
 
+  if (pattern == "\\w") {
+    std::regex word_pattern("[a-z|A-Z|0-9|_]");
+    return std::regex_search(input_line, word_pattern);
+  }
+
   else {
     throw std::runtime_error("Unhandled pattern " + pattern);
   }
