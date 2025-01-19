@@ -1,10 +1,19 @@
 #include <iostream>
+#include <regex>
 #include <string>
 
 bool match_pattern(const std::string &input_line, const std::string &pattern) {
   if (pattern.length() == 1) {
     return input_line.find(pattern) != std::string::npos;
-  } else {
+  }
+
+  if (pattern == "\\d") {
+    std::regex digit_pattern("[0-9]");
+    // std::regex digit_pattern("\\d");
+    return std::regex_search(input_line, digit_pattern);
+  }
+
+  else {
     throw std::runtime_error("Unhandled pattern " + pattern);
   }
 }
@@ -19,7 +28,8 @@ int main(int argc, char *argv[]) {
   std::cerr << "Logs from your program will appear here" << std::endl;
 
   if (argc != 3) {
-    std::cerr << "Expected two arguments" << std::endl;
+    std::cerr << "Expected two arguments"
+              << std::endl; // the flag and the pattern
     return 1;
   }
 
@@ -31,10 +41,8 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
-  // Uncomment this block to pass the first stage
-
   std::string input_line;
-  std::getline(std::cin, input_line);
+  std::getline(std::cin, input_line); // << echo "..." -n
 
   try {
     if (match_pattern(input_line, pattern)) {
