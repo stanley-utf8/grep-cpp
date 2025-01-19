@@ -5,6 +5,58 @@
 #include <unordered_map>
 #include <unordered_set>
 
+bool match_char_group(const std::string &input_line,
+                      const std::string &pattern) {
+  bool is_negative = (pattern.length() > 1 and pattern[1] == '^');
+  int idx = is_negative ? 2 : 1;
+
+  std::unordered_set<char> char_set;
+  while (idx < pattern.length() - 1) {
+    char cur = pattern[idx];
+    char next = pattern[idx + 1];
+
+    if (next == '-') {
+      if (idx + 2 >= pattern.length() - 1) {
+        char_set.insert(cur);
+        char_set.insert(next);
+        idx += 2;
+      } else {
+        char start = cur;
+        int end = pattern[idx + 2];
+        std::cerr << "Adding range from " << start << " to " << end << "\n";
+        for (char c = start; c <= end; c++) {
+          char_set.insert(c);
+        }
+        idx += 3;
+      }
+    } else {
+      char_set.insert(cur);
+      idx += 1;
+    }
+  }
+  std::cerr << "current char set:";
+  for (char c : char_set) {
+    std::cerr << c << " ";
+  }
+  std::cerr << "\n";
+
+  if (is_negative) {
+    for (char c : input_line) {
+      if (char_set.find(c) != char_set.end()) {
+        return false;
+      }
+    }
+    return true;
+  } else {
+    for (char c : input_line) {
+      if (char_set.find(c) != char_set.end()) {
+        return true;
+      }
+    }
+    return false;
+  }
+}
+
 bool match_pattern(const std::string &input_line, const std::string &pattern) {
   std::cerr << "inside match_pattern" << std::endl;
   if (pattern.length() == 1) {
@@ -37,91 +89,7 @@ bool match_pattern(const std::string &input_line, const std::string &pattern) {
   }
 
   if (pattern[0] == '[') {
-    std::cerr << "Processing character group\n";
-    if (pattern[1] == '^') {
-      int idx = 2;
-      std::unordered_set<char> char_set;
-      std::cerr << "Processing negative character group\n";
-      while (idx < pattern.length() - 1) {
-        char cur = pattern[idx];
-        char next = pattern[idx + 1];
-        std::cerr << "Current char: " << cur << ", Next char: " << next << "\n";
-        std::cerr << "Current idx: " << idx << "\n";
-
-        if (next == '-') {
-          if (idx + 2 >= pattern.length() - 1) {
-            char_set.insert(cur);
-            char_set.insert(next);
-            idx += 2;
-          } else {
-            char start = cur;
-            int end = pattern[idx + 2];
-            std::cerr << "Adding range from " << start << " to " << end << "\n";
-            for (char c = start; c <= end; c++) {
-              char_set.insert(c);
-            }
-            idx += 3;
-          }
-        } else {
-          char_set.insert(cur);
-          idx += 1;
-        }
-      }
-      std::cerr << "current char set:";
-      for (char c : char_set) {
-        std::cerr << c << " ";
-      }
-      std::cerr << "\n";
-
-      for (const auto &l : input_line) {
-        if (char_set.find(l) != char_set.end()) {
-          return false;
-        }
-      }
-      return true;
-
-    } else {
-      int idx = 1;
-      std::unordered_set<char> char_set;
-      std::cerr << "Processing positive character group\n";
-      while (idx < pattern.length() - 1) {
-        char cur = pattern[idx];
-        char next = pattern[idx + 1];
-        std::cerr << "Current char: " << cur << ", Next char: " << next << "\n";
-        std::cerr << "Current idx: " << idx << "\n";
-
-        if (next == '-') {
-          if (idx + 2 >= pattern.length() - 1) {
-            char_set.insert(cur);
-            char_set.insert(next);
-            idx += 2;
-          } else {
-            char start = cur;
-            int end = pattern[idx + 2];
-            std::cerr << "Adding range from " << start << " to " << end << "\n";
-            for (char c = start; c <= end; c++) {
-              char_set.insert(c);
-            }
-            idx += 3;
-          }
-        } else {
-          char_set.insert(cur);
-          idx += 1;
-        }
-      }
-      std::cerr << "current char set:";
-      for (char c : char_set) {
-        std::cerr << c << " ";
-      }
-      std::cerr << "\n";
-
-      for (const auto &l : input_line) {
-        if (char_set.find(l) != char_set.end()) {
-          return true;
-        }
-      }
-      return false;
-    }
+    return match_char_group(input_line, pattern);
   }
 
   else {
