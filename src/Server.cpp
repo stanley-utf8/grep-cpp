@@ -6,6 +6,8 @@
 #include <unordered_set>
 #include <vector>
 
+// TODO: make parsing char groups more efficient, currently does it once per
+// input_line character, but should only need to process it once.
 std::vector<std::string> tokenize_pattern(std::string &pattern) {
   std::vector<std::string> tokens;
   for (size_t i = 0; i < pattern.length(); i++) {
