@@ -1,12 +1,39 @@
 #include <cctype>
 #include <iostream>
 #include <regex>
+#include <stdexcept>
 #include <string>
-#include <unordered_map>
 #include <unordered_set>
+#include <vector>
 
-bool match_char_group(const std::string &input_line,
-                      const std::string &pattern) {
+std::vector<std::string> tokenize_pattern(std::string &pattern) {
+  std::vector<std::string> tokens;
+  for (size_t i = 0; i < pattern.length(); i++) {
+    if (pattern[i] == '\\') {
+      // handle char class
+      if (i + 1 < pattern.length()) {
+        tokens.push_back(
+            pattern.substr(i, 2)); // handle \d, \w with substr of 2
+        i++;
+      }
+    } else if (pattern[i] == '[') {
+      size_t end = pattern.find(']', i); // index of matching ]
+      if (end == std::string::npos) {    // matching not found
+        throw std::runtime_error("Matching ']' not found in: " + pattern);
+      }
+      std::string token =
+          pattern.substr(i, end - i + 1); // inclusively tokenize char group
+      tokens.push_back(token);
+      i = end; // move index up
+    } else {
+      tokens.push_back(
+          std::string(1, pattern[i])); // add token size 1, char c = p[i]
+    }
+  }
+  return tokens;
+}
+
+bool match_char_group(char c, const std::string &pattern) {
   bool is_negative = (pattern.length() > 1 and pattern[1] == '^');
   int idx = is_negative ? 2 : 1;
 
@@ -41,60 +68,46 @@ bool match_char_group(const std::string &input_line,
   std::cerr << "\n";
 
   if (is_negative) {
-    for (char c : input_line) {
-      if (char_set.find(c) != char_set.end()) {
-        return false;
-      }
-    }
-    return true;
+    return char_set.find(c) == char_set.end();
   } else {
-    for (char c : input_line) {
-      if (char_set.find(c) != char_set.end()) {
-        return true;
-      }
-    }
-    return false;
+    return char_set.find(c) != char_set.end();
   }
 }
 
-bool match_pattern(const std::string &input_line, const std::string &pattern) {
-  std::cerr << "inside match_pattern" << std::endl;
-  if (pattern.length() == 1) {
-    return input_line.find(pattern) != std::string::npos;
+bool match_token(char c, const std::string &token) {
+  if (token == "\\d") {
+    return isdigit(c);
+  } else if (token == "\\w") {
+    return isalpha(c);
+  } else if (token.length() == 1) {
+    return token[0] == c;
+  } else if (token[0] == '[') {
+    return match_char_group(c, token);
+  } else {
+    throw std::runtime_error("Unhandled token: " + token);
   }
+}
 
-  if (pattern == "\\d") {
-    // regex version
-    // std::regex digit_pattern("[0-9]");
-    // return std::regex_search(input_line, digit_pattern);
-    for (char c : input_line) {
-      if (isdigit(c)) {
-        return true;
+bool match_pattern(const std::string &input_line,
+                   const std::vector<std::string> &tokens) {
+
+  // outer loop for each possible starting pos in input
+  for (size_t start = 0; start + tokens.size() <= input_line.length();
+       start++) {
+    bool match = true;
+
+    // match patterns at cur position with inner loop to compare each token
+    for (size_t i = 0; i < tokens.size(); i++) {
+      if (!match_token(input_line[start + i], tokens[i])) {
+        match = false;
+        break;
       }
     }
-    return false;
-  }
-
-  if (pattern == "\\w") {
-    std::cerr << "procesing \\w" << std::endl;
-    // regex version
-    // std::regex word_pattern("[a-z|A-Z|0-9|_]");
-    // return std::regex_search(input_line, word_pattern);
-    for (char c : input_line) {
-      if (isalnum(c) || c == '_') {
-        return true;
-      }
+    if (match) {
+      return true;
     }
-    return false;
   }
-
-  if (pattern[0] == '[') {
-    return match_char_group(input_line, pattern);
-  }
-
-  else {
-    throw std::runtime_error("Unhandled pattern " + pattern);
-  }
+  return false;
 }
 
 int main(int argc, char *argv[]) {
@@ -124,7 +137,8 @@ int main(int argc, char *argv[]) {
   std::getline(std::cin, input_line); // << echo "..." -n
 
   try {
-    if (match_pattern(input_line, pattern)) {
+    std::vector<std::string> tokens = tokenize_pattern(pattern);
+    if (match_pattern(input_line, tokens)) {
       return 0;
     } else {
       return 1;
