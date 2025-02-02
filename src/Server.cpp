@@ -103,16 +103,11 @@ bool match_char_group(char c, const std::string &pattern) {
 
 bool match_token(size_t idx, const std::string &input_line,
                  const std::string &token) {
-  std::cout << "In `match_token`\n";
   char c = input_line[idx];
-
-  std::cout << "char c: " << c << "\n";
-  std::cout << "token: '" << token << "'\n";
 
   if (token == "\\d") {
     return isdigit(c);
-  } else if (token == "$") {
-    std::cout << "Matching $\n";
+  } else if (token == "$") { // place check before length() == 1
     if (c == '\0') {
       std::cout << "index is '\\0' at char: '" << input_line[idx] << "'\n";
       return true;
