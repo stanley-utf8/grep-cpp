@@ -3,10 +3,24 @@
 #include <cstddef>
 #include <ios>
 #include <iostream>
+#include <regex>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <unordered_set>
 #include <vector>
+
+// Helper method to split string into vector<string> by key
+std::vector<std::string> split(const std::string &str) {
+  std::vector<std::string> tokens;
+  std::stringstream ss(str);
+  std::string token;
+
+  while (std::getline(ss, token, '|')) {
+    tokens.push_back(token);
+  }
+  return tokens;
+}
 
 // TODO: make parsing char groups more efficient, currently does it once per
 // input_line character, but should only need to process it once.
@@ -41,8 +55,20 @@ std::vector<std::string> tokenize_pattern(std::string &pattern) {
                 << "', end index: " << end << "\n";
       tokens.push_back(token);
       i = end; // move index up
-    } else {
+    } else if (pattern[i] == '(') {
+      std::cout << "'(' found at index: " << i << "\n";
+      size_t end = pattern.find(')', i); // index of matching )
+      if (end == std::string::npos) {    // matching not found
+        throw std::runtime_error("Matching ')' not found in: " + pattern);
+      }
+      std::string token =
+          pattern.substr(i, end - i + 1); // inclusively tokenize char group
+      std::cout << "Adding character class token: '" << token
+                << "', end index: " << end << "\n";
+      tokens.push_back(token);
+      i = end; // move index up
 
+    } else {
       std::string single_char(1, pattern[i]);
       if (i + 1 < pattern.size() &&
           (pattern[i + 1] == '+' || pattern[i + 1] == '?')) {
@@ -156,6 +182,27 @@ bool match_from(size_t start_idx, const std::string &input_line,
 
     std::cout << "Matching '" << c << "' at index: " << (start_idx + i)
               << " on token: '" << cur_token << "'\n";
+
+    // if (|), split token by '|', bool, run a for loop, return if any is
+    // true, false if none
+    if (cur_token[0] == '(') {
+      cur_token = cur_token.substr(1, cur_token.size() - 2);
+      std::vector<std::string> s_or = split(cur_token);
+      bool any_match = false;
+      for (size_t j = 0; j < s_or.size(); j++) {
+        std::cout << s_or[j] << "\n";
+        std::string pattern = s_or[j];
+        std::vector<std::string> new_tokens = tokenize_pattern(pattern);
+        if (match_from(0, input_line.substr(i), new_tokens)) {
+          std::cout << "Matched tokens!\n";
+          std::cout << tokens[i + 1];
+          return match_from(
+              0, input_line.substr(i + new_tokens.size()),
+              std::vector<std::string>(tokens.begin() + i + 1, tokens.end()));
+        }
+      }
+      return false;
+    }
 
     if (cur_token == "^") {
       std::cout << "\nMatching start anchor with `match_here` function\n\n";
