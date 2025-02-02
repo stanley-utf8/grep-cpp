@@ -1,8 +1,12 @@
 #include <cctype>
+#include <cerrno>
+#include <cstddef>
+#include <ios>
 #include <iostream>
 #include <regex>
 #include <stdexcept>
 #include <string>
+#include <type_traits>
 #include <unordered_set>
 #include <vector>
 
@@ -10,28 +14,49 @@
 // input_line character, but should only need to process it once.
 std::vector<std::string> tokenize_pattern(std::string &pattern) {
   std::vector<std::string> tokens;
+
+  std::cout << "input pattern: '" << pattern << "'\n";
+
   for (size_t i = 0; i < pattern.length(); i++) {
+    std::cout << "\nProcessing index: " << i << ", char: '" << pattern[i]
+              << "'\n";
     if (pattern[i] == '\\') {
+      std::cout << "'\\' found at index: " << i << "\n";
       // handle char class
       if (i + 1 < pattern.length()) {
-        tokens.push_back(
-            pattern.substr(i, 2)); // handle \d, \w with substr of 2
+        std::string escaped_token = pattern.substr(i, 2);
+        std::cout << "Adding escaped token: '" << escaped_token << "'\n";
+        tokens.push_back(escaped_token); // handle \d, \w with substr of 2
         i++;
+      } else {
+        std::cout << "WARNING: escape character at end of pattern\n";
       }
+
     } else if (pattern[i] == '[') {
+      std::cout << "'[' found at index: " << i << "\n";
       size_t end = pattern.find(']', i); // index of matching ]
       if (end == std::string::npos) {    // matching not found
         throw std::runtime_error("Matching ']' not found in: " + pattern);
       }
       std::string token =
           pattern.substr(i, end - i + 1); // inclusively tokenize char group
+      std::cout << "Adding character class token: '" << token
+                << "', end index: " << end << "\n";
       tokens.push_back(token);
       i = end; // move index up
     } else {
-      tokens.push_back(
-          std::string(1, pattern[i])); // add token size 1, char c = p[i]
+
+      std::string single_char(1, pattern[i]);
+      std::cout << "Adding single character token: '" << single_char << "'\n";
+      tokens.push_back(single_char); // add token size 1, char c = p[i]
     }
   }
+  std::cout << "\nFinal tokens:\n";
+
+  for (size_t i = 0; i < tokens.size(); i++) {
+    std::cout << i << ": '" << tokens[i] << "'\n";
+  }
+
   return tokens;
 }
 
@@ -90,17 +115,66 @@ bool match_token(char c, const std::string &token) {
   }
 }
 
+bool match_here(const std::string &input_line,
+                const std::vector<std::string> &tokens) {
+  bool match = true;
+
+  for (size_t i = 0; i < tokens.size(); i++) {
+    char c = input_line[i];
+    std::string cur_token(tokens[i]);
+
+    std::cout << "Matching '" << c << "' at index: " << i << " on token: '"
+              << cur_token << "'\n";
+
+    if (cur_token == "^") {
+      std::cout << "Matching start anchor\n";
+      const std::vector<std::string> inc_tokens(tokens.begin() + 1,
+                                                tokens.begin() + tokens.size());
+      return match_here(input_line, inc_tokens);
+    }
+
+    if (!match_token(c, cur_token)) {
+      std::cout << "\nFailed to match on this iteration\n";
+      match = false;
+      break;
+    }
+  }
+  if (match) {
+    return true;
+  }
+  std::cout << "\nReturning false. Failed to match in `match_here`\n";
+  return false;
+}
+
 bool match_pattern(const std::string &input_line,
                    const std::vector<std::string> &tokens) {
 
+  std::cout << "\nLength of '" << input_line << "': " << input_line.size()
+            << "\n";
+
+  if (tokens[0] == "^") {
+    std::cout << "\nMatching start anchor with `match_here` function\n\n";
+    const std::vector<std::string> inc_tokens(tokens.begin() + 1,
+                                              tokens.begin() + tokens.size());
+    return match_here(input_line, inc_tokens);
+  }
   // outer loop for each possible starting pos in input
   for (size_t start = 0; start + tokens.size() <= input_line.length();
        start++) {
+    std::cout << "\n-- Starting '" << input_line[start] << "': " << start
+              << ", '" << input_line << "' ...\n\n";
     bool match = true;
 
     // match patterns at cur position with inner loop to compare each token
     for (size_t i = 0; i < tokens.size(); i++) {
-      if (!match_token(input_line[start + i], tokens[i])) {
+      char c = input_line[start + i];
+      std::string cur_token(tokens[i]);
+
+      std::cout << "Matching '" << c << "' at index: " << start + i
+                << " on token: '" << cur_token << "'\n";
+
+      if (!match_token(c, cur_token)) {
+        std::cout << "\nFailed to match on this iteration\n";
         match = false;
         break;
       }
@@ -109,6 +183,7 @@ bool match_pattern(const std::string &input_line,
       return true;
     }
   }
+  std::cout << "\nReturning false. Failed to match\n";
   return false;
 }
 
