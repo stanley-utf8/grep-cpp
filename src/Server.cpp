@@ -3,10 +3,8 @@
 #include <cstddef>
 #include <ios>
 #include <iostream>
-#include <regex>
 #include <stdexcept>
 #include <string>
-#include <type_traits>
 #include <unordered_set>
 #include <vector>
 
@@ -31,7 +29,6 @@ std::vector<std::string> tokenize_pattern(std::string &pattern) {
       } else {
         std::cout << "WARNING: escape character at end of pattern\n";
       }
-
     } else if (pattern[i] == '[') {
       std::cout << "'[' found at index: " << i << "\n";
       size_t end = pattern.find(']', i); // index of matching ]
@@ -47,8 +44,15 @@ std::vector<std::string> tokenize_pattern(std::string &pattern) {
     } else {
 
       std::string single_char(1, pattern[i]);
-      std::cout << "Adding single character token: '" << single_char << "'\n";
-      tokens.push_back(single_char); // add token size 1, char c = p[i]
+      if (i + 1 < pattern.size() && pattern[i + 1] == '+') {
+        std::string one_more = pattern.substr(i, 2);
+        std::cout << "Adding '" << one_more;
+        tokens.push_back(one_more);
+        i++;
+      } else {
+        std::cout << "Adding single character token: '" << single_char << "'\n";
+        tokens.push_back(single_char); // add token size 1, char c = p[i]
+      }
     }
   }
   std::cout << "\nFinal tokens:\n";
@@ -105,23 +109,40 @@ bool match_token(size_t idx, const std::string &input_line,
                  const std::string &token) {
   char c = input_line[idx];
 
+  if (token.size() == 2 && token[token.size() - 1] == '+') {
+    char c_one = token[0];
+    std::cout << "Matching one or more operator on '" << c_one << "'\n";
+    size_t m = idx;
+    if (c_one != c) {
+      std::cout << "'" << c_one << "' doesn't match '" << c << "'\n";
+      return false;
+    }
+    while (input_line[m] == c_one) {
+      std::cout << m;
+      m++;
+    }
+    return true;
+  }
   if (token == "\\d") {
     return isdigit(c);
-  } else if (token == "$") { // place check before length() == 1
+  }
+  if (token == "$") { // place check before length() == 1
     if (c == '\0') {
       std::cout << "index is '\\0' at char: '" << input_line[idx] << "'\n";
       return true;
     }
     return false;
-  } else if (token == "\\w") {
-    return isalpha(c);
-  } else if (token.length() == 1) {
-    return token[0] == c;
-  } else if (token[0] == '[') {
-    return match_char_group(c, token);
-  } else {
-    throw std::runtime_error("Unhandled token: " + token);
   }
+  if (token == "\\w") {
+    return isalpha(c);
+  }
+  if (token.length() == 1) {
+    return token[0] == c;
+  }
+  if (token[0] == '[') {
+    return match_char_group(c, token);
+  }
+  throw std::runtime_error("Unhandled token: " + token);
   return false;
 }
 
@@ -150,6 +171,31 @@ bool match_from(size_t start_idx, const std::string &input_line,
       return match_from(start_idx + i, input_line, inc_tokens);
     }
 
+    if (cur_token[cur_token.size() - 1] == '+') {
+      char c_one = cur_token[0];
+      std::cout << "Matching one or more operator on '" << c_one << "'\n";
+      size_t m = i;
+      if (c_one != c) {
+        std::cout << "'" << c_one << "' doesn't match '" << c << "'\n";
+        return false;
+      }
+      while (input_line[m] == c_one) {
+        std::cout << m << " ";
+        m++;
+      }
+      // matched until now, splice index to [:m], increment tokens, start index
+      // = 0
+      std::string new_string = input_line.substr(m, input_line.size());
+      std::cout << "\nNew string after one or more matches: '" << new_string
+                << "'\n";
+      const std::vector<std::string> new_tokens(tokens.begin() + i + 1,
+                                                tokens.end());
+      for (size_t i = 0; i < new_tokens.size(); i++) {
+        std::cout << i << " : " << new_tokens[i] << "\n";
+      }
+
+      return match_from(0, new_string, new_tokens);
+    }
     if (!match_token(start_idx + i, input_line, cur_token)) {
       std::cout << "\nFailed to match on this iteration\n";
       return false;
@@ -192,7 +238,7 @@ bool match_pattern(const std::string &input_line,
       return true;
     }
   }
-  std::cout << "Returning false from `match_pattern\n\n";
+  std::cout << "Returning false from `match_pattern`\n\n";
   return false;
 }
 
