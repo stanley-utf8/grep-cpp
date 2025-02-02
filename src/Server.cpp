@@ -44,9 +44,10 @@ std::vector<std::string> tokenize_pattern(std::string &pattern) {
     } else {
 
       std::string single_char(1, pattern[i]);
-      if (i + 1 < pattern.size() && pattern[i + 1] == '+') {
+      if (i + 1 < pattern.size() &&
+          (pattern[i + 1] == '+' || pattern[i + 1] == '?')) {
         std::string one_more = pattern.substr(i, 2);
-        std::cout << "Adding '" << one_more;
+        std::cout << "Adding '" << one_more << "'\n";
         tokens.push_back(one_more);
         i++;
       } else {
@@ -65,6 +66,9 @@ std::vector<std::string> tokenize_pattern(std::string &pattern) {
 }
 
 bool match_char_group(char c, const std::string &pattern) {
+  if (c == '\0') {
+    return false;
+  }
   bool is_negative = (pattern.length() > 1 and pattern[1] == '^');
   int idx = is_negative ? 2 : 1;
 
@@ -109,20 +113,6 @@ bool match_token(size_t idx, const std::string &input_line,
                  const std::string &token) {
   char c = input_line[idx];
 
-  if (token.size() == 2 && token[token.size() - 1] == '+') {
-    char c_one = token[0];
-    std::cout << "Matching one or more operator on '" << c_one << "'\n";
-    size_t m = idx;
-    if (c_one != c) {
-      std::cout << "'" << c_one << "' doesn't match '" << c << "'\n";
-      return false;
-    }
-    while (input_line[m] == c_one) {
-      std::cout << m;
-      m++;
-    }
-    return true;
-  }
   if (token == "\\d") {
     return isdigit(c);
   }
@@ -190,11 +180,40 @@ bool match_from(size_t start_idx, const std::string &input_line,
                 << "'\n";
       const std::vector<std::string> new_tokens(tokens.begin() + i + 1,
                                                 tokens.end());
-      for (size_t i = 0; i < new_tokens.size(); i++) {
-        std::cout << i << " : " << new_tokens[i] << "\n";
-      }
-
       return match_from(0, new_string, new_tokens);
+    }
+    if (cur_token[cur_token.size() - 1] == '?') {
+      char c_one = cur_token[0];
+      std::cout << "Matching zero or more operator on '" << c_one << "'\n";
+      size_t m = i;
+      if (c_one != c) {
+        std::cout << "'" << c_one << "' doesn't match '" << c << "'\n";
+        std::cout << "Continuing to next token\n";
+
+        std::string new_string = input_line.substr(i, input_line.size());
+        std::cout << "\nNew string after optional match: '" << new_string
+                  << "'\n";
+        const std::vector<std::string> new_tokens(tokens.begin() + i + 1,
+                                                  tokens.end());
+        return match_from(0, new_string, new_tokens);
+
+      } else {
+        while (input_line[m] == c_one) {
+          std::cout << m << " ";
+          m++;
+        }
+        // splice index to [:m], increment tokens, start index
+        std::string new_string = input_line.substr(m, input_line.size());
+        std::cout << "\nNew string after one or more matches: '" << new_string
+                  << "'\n";
+        const std::vector<std::string> new_tokens(tokens.begin() + i + 1,
+                                                  tokens.end());
+        for (size_t i = 0; i < new_tokens.size(); i++) {
+          std::cout << i << " : " << new_tokens[i] << "\n";
+        }
+
+        return match_from(0, new_string, new_tokens);
+      }
     }
     if (!match_token(start_idx + i, input_line, cur_token)) {
       std::cout << "\nFailed to match on this iteration\n";
@@ -227,13 +246,14 @@ bool match_pattern(const std::string &input_line,
   }
 
   // outer loop for each possible starting pos in input
-  for (size_t start = 0; start + tokens.size() <= input_line.length();
-       start++) {
+  // will removing + tokens.size() check make false positives?
+  // I don't think so...
+  for (size_t start = 0; start <= input_line.length(); start++) {
     bool match = true;
     std::cout << "\n-- Starting '" << input_line[start] << "': " << start
               << ", '" << input_line << "' ...\n\n";
 
-    match = match_from(start, input_line, tokens);
+    match = match_from(0, input_line.substr(start), tokens);
     if (match) {
       return true;
     }
