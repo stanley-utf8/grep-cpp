@@ -123,6 +123,9 @@ bool match_token(size_t idx, const std::string &input_line,
     }
     return false;
   }
+  if (token == ".") {
+    return true;
+  }
   if (token == "\\w") {
     return isalpha(c);
   }
@@ -165,6 +168,29 @@ bool match_from(size_t start_idx, const std::string &input_line,
       char c_one = cur_token[0];
       std::cout << "Matching one or more operator on '" << c_one << "'\n";
       size_t m = i;
+
+      if (c_one == '.') {
+        if (i + 1 < tokens.size()) {
+          std::string next_token(tokens[i + 1]);
+          while (m < input_line.size() &&
+                 !match_token(m, input_line, next_token)) {
+            m++;
+          }
+
+          std::cout << "Next solid match: '" << input_line[m] << "', token: '"
+                    << next_token << "'\n";
+          return match_from(
+              0, input_line.substr(m),
+              std::vector<std::string>(tokens.begin() + i + 1, tokens.end()));
+        }
+        // this means cur token is the last token
+        std::cout << "at last token\n";
+        if (input_line.size() - i >= 1) {
+          return true;
+        } else {
+          return false;
+        }
+      }
       if (c_one != c) {
         std::cout << "'" << c_one << "' doesn't match '" << c << "'\n";
         return false;
@@ -173,8 +199,8 @@ bool match_from(size_t start_idx, const std::string &input_line,
         std::cout << m << " ";
         m++;
       }
-      // matched until now, splice index to [:m], increment tokens, start index
-      // = 0
+      // matched until now, splice index to [:m], increment tokens, start
+      // index = 0
       std::string new_string = input_line.substr(m, input_line.size());
       std::cout << "\nNew string after one or more matches: '" << new_string
                 << "'\n";
@@ -190,7 +216,7 @@ bool match_from(size_t start_idx, const std::string &input_line,
         std::cout << "'" << c_one << "' doesn't match '" << c << "'\n";
         std::cout << "Continuing to next token\n";
 
-        std::string new_string = input_line.substr(i, input_line.size());
+        std::string new_string = input_line.substr(i);
         std::cout << "\nNew string after optional match: '" << new_string
                   << "'\n";
         const std::vector<std::string> new_tokens(tokens.begin() + i + 1,
@@ -198,7 +224,7 @@ bool match_from(size_t start_idx, const std::string &input_line,
         return match_from(0, new_string, new_tokens);
 
       } else {
-        while (input_line[m] == c_one) {
+        while (m < input_line.size() && input_line[m] == c_one) {
           std::cout << m << " ";
           m++;
         }
@@ -267,8 +293,8 @@ int main(int argc, char *argv[]) {
   std::cout << std::unitbuf;
   std::cerr << std::unitbuf;
 
-  // You can use print statements as follows for debugging, they'll be visible
-  // when running tests.
+  // You can use print statements as follows for debugging, they'll be
+  // visible when running tests.
   std::cerr << "Logs from your program will appear here" << std::endl;
 
   if (argc != 3) {
