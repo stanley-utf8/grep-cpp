@@ -169,14 +169,21 @@ bool match_from(size_t start_idx, const std::string &input_line,
                 const std::vector<std::string> &tokens) {
   bool match = true;
 
+  // if (tokens[0] == "^") {
+  //   std::cout << "\nMatching start anchor with `match_here` function\n\n";
+  //   const std::vector<std::string> inc_tokens(tokens.begin() + 1,
+  //   tokens.end()); return match_from(0, input_line, inc_tokens);
+  // }
+
   // iterate through tokens
   for (size_t i = 0; i < tokens.size(); i++) {
 
-    // if (start_idx + i >= input_line.size()) {
-    //   return false;
-    // }
+    if (start_idx + i >= input_line.size() && tokens[i] != "$") {
+      return false;
+    }
 
-    char c = input_line[start_idx + i];
+    char c =
+        (start_idx + i < input_line.size()) ? input_line[start_idx + i] : '\0';
 
     std::string cur_token(tokens[i]);
 
@@ -184,20 +191,23 @@ bool match_from(size_t start_idx, const std::string &input_line,
               << " on token: '" << cur_token << "'\n";
 
     // if (|), split token by '|', bool, run a for loop, return if any is
-    // true, false if none
+    // handle alternation
     if (cur_token[0] == '(') {
-      cur_token = cur_token.substr(1, cur_token.size() - 2);
-      std::vector<std::string> s_or = split(cur_token);
-      bool any_match = false;
-      for (size_t j = 0; j < s_or.size(); j++) {
-        std::cout << s_or[j] << "\n";
-        std::string pattern = s_or[j];
-        std::vector<std::string> new_tokens = tokenize_pattern(pattern);
-        if (match_from(0, input_line.substr(i), new_tokens)) {
+      std::string group_contents = cur_token.substr(1, cur_token.size() - 2);
+      std::vector<std::string> alternatives = split(group_contents);
+      for (auto &alt : alternatives) {
+        std::vector<std::string> new_tokens = tokenize_pattern(alt);
+        if (match_from(start_idx, input_line, new_tokens)) {
+
           std::cout << "Matched tokens!\n";
-          std::cout << tokens[i + 1];
+          size_t consumed = new_tokens.size();
+          // if no tokens after the alternation group, match complete
+          if (i + 1 >= tokens.size()) {
+            return true;
+          }
+
           return match_from(
-              0, input_line.substr(i + new_tokens.size()),
+              start_idx + consumed - 1, input_line,
               std::vector<std::string>(tokens.begin() + i + 1, tokens.end()));
         }
       }
@@ -206,9 +216,9 @@ bool match_from(size_t start_idx, const std::string &input_line,
 
     if (cur_token == "^") {
       std::cout << "\nMatching start anchor with `match_here` function\n\n";
-      const std::vector<std::string> inc_tokens(tokens.begin() + i,
+      const std::vector<std::string> inc_tokens(tokens.begin() + i + 1,
                                                 tokens.end());
-      return match_from(start_idx + i, input_line, inc_tokens);
+      return match_from(0, input_line.substr(start_idx + i), inc_tokens);
     }
 
     if (cur_token[cur_token.size() - 1] == '+') {
