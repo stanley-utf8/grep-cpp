@@ -22,74 +22,114 @@ std::vector<std::string> split(const std::string &str) {
   return tokens;
 }
 
-// Tokenize the pattern into tokens, now with group_counter to track group numbers
-std::vector<std::string> tokenize_pattern(std::string &pattern, int &group_counter) {
+// Tokenize the pattern into tokens, now with group_counter to track group
+// numbers
+std::vector<std::string> tokenize_pattern(std::string &pattern,
+                                          int &group_counter) {
   std::vector<std::string> tokens;
 
+  std::cout << "input pattern: '" << pattern << "'\n";
+
   for (size_t i = 0; i < pattern.length(); i++) {
+    std::cout << "\nProcessing index: " << i << ", char: '" << pattern[i]
+              << "'\n";
     if (pattern[i] == '\\') {
+      std::cout << "'\\' found at index: " << i << "\n";
       if (i + 1 < pattern.length()) {
         std::string escaped_token = pattern.substr(i, 2);
+        // Check for quantifier after escaped token
         size_t next_pos = i + 2;
-        if (next_pos < pattern.length() && (pattern[next_pos] == '+' || pattern[next_pos] == '?')) {
-          escaped_token += pattern[next_pos];
-          i = next_pos;
+        if (next_pos < pattern.length()) {
+          char next_char = pattern[next_pos];
+          if (next_char == '+' || next_char == '?') {
+            escaped_token += next_char;
+            i = next_pos; // Move past the quantifier
+          }
         }
+        std::cout << "Adding escaped token: '" << escaped_token << "'\n";
         tokens.push_back(escaped_token);
-        i++;
+        i++; // Skip the next character as it's part of the escaped token or
+             // quantifier
+      } else {
+        std::cout << "WARNING: escape character at end of pattern\n";
       }
     } else if (pattern[i] == '[') {
+      std::cout << "'[' found at index: " << i << "\n";
       size_t end = pattern.find(']', i);
       if (end == std::string::npos) {
         throw std::runtime_error("Matching ']' not found in: " + pattern);
       }
       std::string token = pattern.substr(i, end - i + 1);
+      // Check for quantifier after ]
       size_t next_pos = end + 1;
-      if (next_pos < pattern.length() && (pattern[next_pos] == '+' || pattern[next_pos] == '?')) {
-        token += pattern[next_pos];
-        end = next_pos;
+      if (next_pos < pattern.length()) {
+        char next_char = pattern[next_pos];
+        if (next_char == '+' || next_char == '?') {
+          token += next_char;
+          end = next_pos; // Move past the quantifier
+        }
       }
+      std::cout << "Adding character class token: '" << token
+                << "', end index: " << end << "\n";
       tokens.push_back(token);
-      i = end;
+      i = end; // Move to the end of the token (including quantifier if any)
     } else if (pattern[i] == '(') {
+      std::cout << "'(' found at index: " << i << "\n";
       size_t end = pattern.find(')', i);
       if (end == std::string::npos) {
         throw std::runtime_error("Matching ')' not found in: " + pattern);
       }
       group_counter++;
       std::string content = pattern.substr(i + 1, end - i - 1);
-      std::string token = "(" + std::to_string(group_counter) + ":" + content + ")";
+      std::string token =
+          "(" + std::to_string(group_counter) + ":" + content + ")";
+      // Check for quantifier after )
       size_t next_pos = end + 1;
-      if (next_pos < pattern.length() && (pattern[next_pos] == '+' || pattern[next_pos] == '?')) {
-        token += pattern[next_pos];
-        end = next_pos;
+      if (next_pos < pattern.length()) {
+        char next_char = pattern[next_pos];
+        if (next_char == '+' || next_char == '?') {
+          token += next_char;
+          end = next_pos; // Move past the quantifier
+        }
       }
+      std::cout << "Adding group token: '" << token << "', end index: " << end
+                << "\n";
       tokens.push_back(token);
-      i = end;
+      i = end; // Move to the end of the token (including quantifier if any)
     } else {
       std::string single_char(1, pattern[i]);
-      if (i + 1 < pattern.size() && (pattern[i + 1] == '+' || pattern[i + 1] == '?')) {
+      if (i + 1 < pattern.size() &&
+          (pattern[i + 1] == '+' || pattern[i + 1] == '?')) {
         std::string one_more = pattern.substr(i, 2);
+        std::cout << "Adding '" << one_more << "'\n";
         tokens.push_back(one_more);
-        i++;
+        i++; // Skip the quantifier as it's part of the token
       } else {
+        std::cout << "Adding single character token: '" << single_char << "'\n";
         tokens.push_back(single_char);
       }
     }
+  }
+  std::cout << "\nFinal tokens:\n";
+  for (size_t i = 0; i < tokens.size(); i++) {
+    std::cout << i << ": '" << tokens[i] << "'\n";
   }
   return tokens;
 }
 
 // Helper to match a character against a character group token (like "[a-z]")
 bool match_char_group(char c, const std::string &pattern) {
-  if (c == '\0') return false;
-  bool is_negative = (pattern.length() > 1 && pattern[1] == '^');
+  if (c == '\0') {
+    return false;
+  }
+  bool is_negative = (pattern.length() > 1 and pattern[1] == '^');
   int idx = is_negative ? 2 : 1;
 
   std::unordered_set<char> char_set;
   while (idx < pattern.length() - 1) {
     char cur = pattern[idx];
     char next = pattern[idx + 1];
+
     if (next == '-') {
       if (idx + 2 >= pattern.length() - 1) {
         char_set.insert(cur);
@@ -98,6 +138,7 @@ bool match_char_group(char c, const std::string &pattern) {
       } else {
         char start = cur;
         char end = pattern[idx + 2];
+        std::cerr << "Adding range from " << start << " to " << end << "\n";
         for (char ch = start; ch <= end; ch++) {
           char_set.insert(ch);
         }
@@ -105,127 +146,174 @@ bool match_char_group(char c, const std::string &pattern) {
       }
     } else {
       char_set.insert(cur);
-      idx++;
+      idx += 1;
     }
   }
+  std::cerr << "current char set:";
+  for (char ch : char_set) {
+    std::cerr << ch << " ";
+  }
+  std::cerr << "\n";
 
-  return is_negative ? (char_set.find(c) == char_set.end()) : (char_set.find(c) != char_set.end());
+  if (is_negative) {
+    return char_set.find(c) == char_set.end();
+  } else {
+    return char_set.find(c) != char_set.end();
+  }
 }
 
 // Match a single token at a given position in the input.
-bool match_token(size_t idx, const std::string &input_line, const std::string &token) {
-  if (idx >= input_line.size()) return false;
+bool match_token(size_t idx, const std::string &input_line,
+                 const std::string &token) {
+  if (idx >= input_line.size())
+    return false;
   char c = input_line[idx];
 
-  if (token == "\\d") return isdigit(c);
-  if (token == "$") return idx == input_line.size();
-  if (token == ".") return true;
-  if (token == "\\w") return isalpha(c);
-  if (token.length() == 1) return token[0] == c;
-  if (token[0] == '[') return match_char_group(c, token.substr(0, token.find_first_of("+?")));
+  if (token == "\\d") {
+    return isdigit(c);
+  }
+  if (token == "$") {
+    return idx == input_line.size();
+  }
+  if (token == ".") {
+    return true;
+  }
+  if (token == "\\w") {
+    return isalpha(c);
+  }
+  if (token.length() == 1) {
+    return token[0] == c;
+  }
+  if (token[0] == '[') {
+    return match_char_group(c, token.substr(0, token.find_first_of("+?")));
+  }
   throw std::runtime_error("Unhandled token: " + token);
+  return false;
 }
 
-bool match_from(const std::vector<std::string> &tokens, const std::string &input_line,
-                size_t &pos, std::unordered_map<std::string, std::string> &groups, int &group_counter);
-
-bool handle_quantifier(const std::vector<std::string> &remaining_tokens, const std::string &token,
-                       size_t &pos, const std::string &input_line,
-                       std::unordered_map<std::string, std::string> &groups, int &group_counter) {
+// Handle quantifiers for a token (common logic for + and ?)
+bool handle_quantifier(const std::string &token, size_t &pos,
+                       const std::string &input_line, bool is_plus) {
+  if (token.empty())
+    return false;
   char quantifier = token.back();
   std::string base_token = token.substr(0, token.size() - 1);
-  size_t initial_pos = pos;
 
   if (quantifier == '+') {
-    // Determine maximum possible matches
-    size_t max_count = 0;
-    while (pos + max_count < input_line.size() && match_token(pos + max_count, input_line, base_token)) {
-      max_count++;
+    size_t count = 0;
+    while (pos < input_line.size() &&
+           match_token(pos, input_line, base_token)) {
+      pos++;
+      count++;
     }
-    if (max_count == 0) return false;
-
-    // Try from max_count down to 1
-    for (int count = max_count; count >= 1; --count) {
-      pos = initial_pos + count;
-      bool remaining_matched = match_from(remaining_tokens, input_line, pos, groups, group_counter);
-      if (remaining_matched) {
-        return true;
-      }
-      pos = initial_pos; // Reset pos for next attempt
-    }
-    return false;
+    return count >= 1;
   } else if (quantifier == '?') {
-    // Try 0 or 1 occurrence
-    for (int count = 1; count >= 0; --count) {
-      pos = initial_pos + count;
-      bool remaining_matched = (count == 0) || match_token(initial_pos, input_line, base_token);
-      if (remaining_matched) {
-        remaining_matched = match_from(remaining_tokens, input_line, pos, groups, group_counter);
-        if (remaining_matched) return true;
-      }
-      pos = initial_pos; // Reset pos for next attempt
+    if (pos < input_line.size() && match_token(pos, input_line, base_token)) {
+      pos++;
     }
-    return false;
+    return true;
   }
   return false;
 }
 
-bool match_from(const std::vector<std::string> &tokens, const std::string &input_line,
-                size_t &pos, std::unordered_map<std::string, std::string> &groups, int &group_counter) {
-  if (tokens.empty()) return true;
+/*
+  Updated match_from function to handle quantifiers for character classes and
+  other tokens.
+*/
+bool match_from(const std::vector<std::string> &tokens,
+                const std::string &input_line, size_t &pos,
+                std::unordered_map<std::string, std::string> &groups,
+                int &group_counter) {
+  for (size_t i = 0; i < tokens.size(); i++) {
+    const std::string &token = tokens[i];
+    std::cout << "At pos " << pos << ", matching token: '" << token << "'\n";
 
-  std::string current_token = tokens[0];
-  std::vector<std::string> remaining_tokens(tokens.begin() + 1, tokens.end());
+    if (token.empty())
+      continue;
 
-  if (current_token == "^") {
-    if (pos != 0) return false;
-    return match_from(remaining_tokens, input_line, pos, groups, group_counter);
-  } else if (current_token == "$") {
-    return pos == input_line.size() && remaining_tokens.empty();
-  } else if (current_token[0] == '(') {
-    size_t colon_pos = current_token.find(':');
-    if (colon_pos == std::string::npos || current_token.back() != ')') {
-      throw std::runtime_error("Invalid group token: " + current_token);
+    // Handle start (^) and end ($) anchors.
+    if (token == "^") {
+      if (pos != 0)
+        return false;
+    } else if (token == "$") {
+      if (pos != input_line.size())
+        return false;
     }
-    std::string group_num_str = current_token.substr(1, colon_pos - 1);
-    std::string group_content = current_token.substr(colon_pos + 1, current_token.size() - colon_pos - 2 - (current_token.back() == '+' || current_token.back() == '?' ? 1 : 0));
-    size_t groupStart = pos;
-    std::vector<std::string> alternatives = split(group_content);
-    size_t savedPos = pos;
-    for (auto &alt : alternatives) {
-      pos = savedPos;
-      int temp_group_counter = 0; // Prevent modifying the original group_counter
-      std::vector<std::string> groupTokens = tokenize_pattern(alt, temp_group_counter);
-      std::unordered_map<std::string, std::string> temp_groups;
-      if (match_from(groupTokens, input_line, pos, temp_groups, temp_group_counter)) {
-        groups[group_num_str] = input_line.substr(groupStart, pos - groupStart);
-        if (match_from(remaining_tokens, input_line, pos, groups, group_counter)) {
-          return true;
+    // If token is a capturing group, parse group number and content.
+    else if (token[0] == '(') {
+      size_t colon_pos = token.find(':');
+      if (colon_pos == std::string::npos || token.back() != ')') {
+        throw std::runtime_error("Invalid group token: " + token);
+      }
+      std::string group_num_str = token.substr(1, colon_pos - 1);
+      int group_num = std::stoi(group_num_str);
+      std::string group_content = token.substr(
+          colon_pos + 1,
+          token.size() - colon_pos - 2 -
+              (token.back() == '+' || token.back() == '?' ? 1 : 0));
+
+      size_t groupStart = pos;
+      std::vector<std::string> alternatives = split(group_content);
+      bool groupMatched = false;
+      size_t savedPos = pos;
+      for (auto &alt : alternatives) {
+        pos = savedPos;
+        std::vector<std::string> groupTokens =
+            tokenize_pattern(alt, group_counter);
+        if (match_from(groupTokens, input_line, pos, groups, group_counter)) {
+          groupMatched = true;
+          break;
         }
       }
+      if (!groupMatched)
+        return false;
+
+      std::string groupMatch = input_line.substr(groupStart, pos - groupStart);
+      groups[group_num_str] = groupMatch;
+      std::cout << "Captured group " << group_num << ": " << groupMatch << "\n";
     }
-    return false;
-  } else if (current_token.size() >= 2 && current_token[0] == '\\' && isdigit(current_token[1])) {
-    std::string group_num_str = current_token.substr(1);
-    auto it = groups.find(group_num_str);
-    if (it == groups.end()) return false;
-    std::string expected = it->second;
-    if (input_line.substr(pos, expected.length()) != expected) return false;
-    pos += expected.length();
-    return match_from(remaining_tokens, input_line, pos, groups, group_counter);
-  } else if (current_token.back() == '+' || current_token.back() == '?') {
-    return handle_quantifier(remaining_tokens, current_token, pos, input_line, groups, group_counter);
-  } else {
-    if (!match_token(pos, input_line, current_token)) return false;
-    pos++;
-    return match_from(remaining_tokens, input_line, pos, groups, group_counter);
+    // Handle backreferences like \1, \2 etc.
+    else if (token.size() >= 2 && token[0] == '\\' && isdigit(token[1])) {
+      std::string group_num_str = token.substr(1);
+      auto it = groups.find(group_num_str);
+      if (it == groups.end()) {
+        std::cout << "Backreference to non-existent group: " << group_num_str
+                  << "\n";
+        return false;
+      }
+      std::string expected = it->second;
+      std::cout << "Matching backreference to group " << group_num_str
+                << ", expecting: " << expected << "\n";
+      if (input_line.substr(pos, expected.length()) != expected) {
+        return false;
+      }
+      pos += expected.length();
+    }
+    // Handle tokens with quantifiers
+    else if (token.back() == '+' || token.back() == '?') {
+      if (!handle_quantifier(token, pos, input_line, token.back() == '+'))
+        return false;
+    }
+    // Otherwise, match a normal token (assumed to consume one character).
+    else {
+      if (!match_token(pos, input_line, token))
+        return false;
+      pos++;
+    }
   }
+  return true;
 }
 
-bool match_pattern(const std::string &input_line, const std::vector<std::string> &tokens, int &group_counter) {
-  if (tokens.empty()) return input_line.empty();
+/*
+  Top-level match_pattern.
+*/
+bool match_pattern(const std::string &input_line,
+                   const std::vector<std::string> &tokens, int &group_counter) {
+  if (tokens.empty()) {
+    return input_line.empty();
+  }
 
-  bool anchored_start = (!tokens.empty() && tokens[0] == "^");
+  bool anchored_start = (tokens[0] == "^");
   if (anchored_start) {
     size_t pos = 0;
     std::unordered_map<std::string, std::string> groups;
