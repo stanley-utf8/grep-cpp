@@ -32,29 +32,31 @@ if (quantifier == '+') {
   return count >= 1;
 }
 ```
-Key Design Details
+___
 
-1. **Tokenization of Patterns:**
+# Key Design Details
+
+## Tokenization of Patterns
 
 I broke down regex patterns into tokens by scanning the input pattern string and recognizing special characters, character classes (`[abc]`, `[^def]`), escaped sequences (e.g., `\\d`, `\\w`), capturing groups (e.g., `(group)`), and quantifiers (`+`, `?`). This tokenization was crucial for later matching logic.
 
 - **Data Structures Used**: I used vectors to store tokens and an incrementing counter to track capturing group numbers.
 - **Error Handling**: I implemented runtime error checks for unmatched brackets or parentheses, ensuring robust parsing.
 
-2. **Implicit FSM via Recursive Backtracking:**
+## Implicit FSM via Recursive Backtracking:
 
 Rather than building a state-machine with explicit states and transitions, I maintained a `pos` variable that acted as the current state. The matching function `match_token()` checked transitions by comparing tokens against the input string, while quantifiers were handled with `handle_quantifier()` which consumed one or more characters based on the quantifier rules.
 
 - **Anchors**: Special tokens like `^` and `$` were handled to enforce matches at the beginning or end of the input.
 - **Quantifiers**: The `+` quantifier is implemented greedily, ensuring at least one match, and the `?` quantifier optionally matches a token.
 
-3. **Handling Character Classes and Groups:**
+## Handling Character Classes and Groups:
 
 - **Character Classes**: I used `std::unordered_set` to manage character groups efficiently. The helper function `match_char_group()` dynamically builds a set of allowed (or disallowed) characters from patterns like `[a-z]` or `[^abc]`.
 - **Capturing Groups**: Capturing groups are tokenized with a group number and stored in a `std::unordered_map` once matched. This enabled backreferences (e.g., \1), where the previously captured content is re-matched later in the input.
 
 
-Challenges:
+## Challenges:
 
 I was unable to add support for nested backreferences, which was the last part of the codecrafters module on grep. 
 
